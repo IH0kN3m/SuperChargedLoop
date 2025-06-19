@@ -10,7 +10,7 @@ import SwiftUI
 
 enum Models {
     enum TileType: CaseIterable { case t0, t1, t2, t3, t4, t5 }
-    enum RotationPoint: Int, CaseIterable {
+    enum RotationPoint: Int, CaseIterable, Equatable {
         case r0 = 0
         case r90 = 90
         case r180 = 180
@@ -41,7 +41,7 @@ enum Models {
         let y: Int
     }
 
-    struct OpenConnection {
+    struct OpenConnection: Equatable {
         let position: Position
         let connectionPoint: RotationPoint
     }

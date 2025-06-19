@@ -8,13 +8,7 @@
 import Foundation
 
 class MatrixEngine {
-    let matrixSize: (Int, Int)
-    
-    init(matrixSize: (Int, Int)) {
-        self.matrixSize = matrixSize
-    }
-    
-    func generateGrid() -> (grid: [[Models.Tile]], openConnections: [Models.OpenConnection]) {
+    func generateGrid(matrixSize: (Int, Int)) -> (grid: [[Models.Tile]], openConnections: [Models.OpenConnection]) {
         let x = matrixSize.0
         let y = matrixSize.1
         
@@ -68,7 +62,7 @@ class MatrixEngine {
                 }
                 
                 guard !candidates.isEmpty else {
-                    return generateGrid()
+                    return generateGrid(matrixSize: matrixSize)
                 }
                 
                 row.append(candidates.randomElement() ?? .init())
