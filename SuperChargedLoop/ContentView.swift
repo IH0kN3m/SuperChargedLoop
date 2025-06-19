@@ -7,8 +7,11 @@
 
 import SwiftUI
 
+/// The main view for the SuperChargedLoop app, displaying the interactive tile grid and settings.
 struct ContentView: View {
+    /// The view model managing the app's state and logic.
     @ObservedObject var viewModel: ViewModel
+    /// Controls the presentation of the settings sheet.
     @State private var showSettings = false
 
     var body: some View {
@@ -31,7 +34,7 @@ struct ContentView: View {
         .onAppear { Task { viewModel.generateGrid() } }
         .onChange(of: viewModel.openConnections) {
             if viewModel.openConnections.isEmpty {
-                viewModel.generateGrid()
+               viewModel.generateGrid()
             }
         }
         .onTapGesture {
@@ -95,6 +98,7 @@ struct ContentView: View {
         }
     }
 
+    /// A standard grid view for smaller matrices.
     var gridBody: some View {
         VStack(alignment: .center, spacing: 0) {
             ForEach(0..<viewModel.grid.count, id: \.self) { row in
@@ -108,6 +112,7 @@ struct ContentView: View {
         }
     }
 
+    /// A lazy grid view for large, scrollable matrices.
     var lazyGridBody: some View {
         LazyVStack(alignment: .center, spacing: 0) {
             ForEach(0..<viewModel.grid.count, id: \.self) { row in
@@ -121,6 +126,9 @@ struct ContentView: View {
         }
     }
 
+    /// Returns a view for a single tile, handling its appearance and rotation gesture.
+    /// - Parameter tile: The tile model to display.
+    /// - Returns: A SwiftUI view representing the tile.
     func tileView(_ tile: Models.Tile) -> some View {
         tile.asset
             .renderingMode(.template)
