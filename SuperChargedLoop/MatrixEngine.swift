@@ -8,7 +8,23 @@
 import Foundation
 
 class MatrixEngine {
-    func generateGrid(matrixSize: (Int, Int)) -> (grid: [[Models.Tile]], openConnections: [Models.OpenConnection]) {
+    /// Generates a solvable matrix of tiles.
+    ///
+    /// Optionally, the caller can request the matrix to be mirrored across the **vertical** axis (`mirrorHoriz`) and/or
+    /// across the **horizontal** axis (`mirrorVert`).
+    /// When a mirroring option is enabled the engine will only create the tiles for the first half along the requested
+    /// axis (or axes) and will automatically reflect them to the other side, making sure the tile orientation is also
+    /// mirrored to preserve a valid solution.
+    ///
+    /// - Parameters:
+    ///   - matrixSize: Tuple **(columns, rows)** specifying the desired size.
+    ///   - mirrorHoriz: When `true`, the right-hand side of the matrix is a horizontal mirror of the left-hand side.
+    ///   - mirrorVert:  When `true`, the bottom half of the matrix is a vertical mirror of the top half.
+    func generateGrid(
+        matrixSize: (Int, Int),
+        mirrorHoriz: Bool = false,
+        mirrorVert: Bool = false
+    ) -> (grid: [[Models.Tile]], openConnections: [Models.OpenConnection]) {
         let x = matrixSize.0
         let y = matrixSize.1
         
@@ -62,7 +78,12 @@ class MatrixEngine {
                 }
                 
                 guard !candidates.isEmpty else {
-                    return generateGrid(matrixSize: matrixSize)
+                    // In the rare event that we hit a dead-end, start over with the same parameters.
+                    return generateGrid(
+                        matrixSize: matrixSize,
+                        mirrorHoriz: mirrorHoriz,
+                        mirrorVert: mirrorVert
+                    )
                 }
                 
                 row.append(candidates.randomElement() ?? .init())
@@ -70,7 +91,19 @@ class MatrixEngine {
             grid.append(row)
         }
         
-        let shuffledResult = shuffleTilesWithRandomRotations(grid: grid)
+        // If requested, create a mirrored version of the grid **before** we apply the random rotations.
+        let mirroredGrid: [[Models.Tile]]
+        if mirrorHoriz || mirrorVert {
+            mirroredGrid = makeMirroredGrid(
+                from: grid,
+                mirrorHoriz: mirrorHoriz,
+                mirrorVert: mirrorVert
+            )
+        } else {
+            mirroredGrid = grid
+        }
+
+        let shuffledResult = shuffleTilesWithRandomRotations(grid: mirroredGrid)
         return (grid: shuffledResult.grid, openConnections: shuffledResult.openConnections)
     }
     
@@ -250,5 +283,91 @@ class MatrixEngine {
         }
 
         return (grid: updatedGrid, openConnections: updatedOpenConnections)
+    }
+
+    // MARK: - Mirroring helpers
+
+    /// Produces a new grid by mirroring the `source` grid according to the requested axes.
+    private func makeMirroredGrid(
+        from source: [[Models.Tile]],
+        mirrorHoriz: Bool,
+        mirrorVert: Bool
+    ) -> [[Models.Tile]] {
+        guard let firstRow = source.first else { return source }
+        let columns = firstRow.count
+        let rows = source.count
+
+        var result: [[Models.Tile]] = Array(
+            repeating: Array(repeating: Models.Tile(), count: columns),
+            count: rows
+        )
+
+        for y in 0..<rows {
+            for x in 0..<columns {
+                var srcX = x
+                var srcY = y
+                var applyHoriz = false
+                var applyVert = false
+
+                if mirrorHoriz && x >= (columns + 1) / 2 {
+                    srcX = columns - 1 - x
+                    applyHoriz = true
+                }
+
+                if mirrorVert && y >= (rows + 1) / 2 {
+                    srcY = rows - 1 - y
+                    applyVert = true
+                }
+
+                let originalTile = source[srcY][srcX]
+                let newPosition = Models.Position(x: x, y: y)
+
+                if applyHoriz || applyVert {
+                    // Create a brand-new tile with the mirrored orientation.
+                    let mirroredRotation = mirroredRotation(
+                        for: originalTile.rotation,
+                        mirrorHoriz: applyHoriz,
+                        mirrorVert: applyVert
+                    )
+                    result[y][x] = Models.Tile(
+                        type: originalTile.type,
+                        position: newPosition,
+                        rotation: mirroredRotation
+                    )
+                } else {
+                    // Re-use the existing tile when no transformation is needed.
+                    result[y][x] = originalTile
+                }
+            }
+        }
+
+        return result
+    }
+
+    /// Returns the rotation that results from mirroring `rotation` horizontally, vertically or both.
+    private func mirroredRotation(
+        for rotation: Models.RotationPoint,
+        mirrorHoriz: Bool,
+        mirrorVert: Bool
+    ) -> Models.RotationPoint {
+        var result = rotation
+
+        if mirrorHoriz {
+            result = switch result {
+            case .r90: .r270
+            case .r270: .r90
+            default: result
+            }
+        }
+
+        if mirrorVert {
+            result = switch result {
+            case .r0: .r180
+            case .r180: .r0
+            default: result
+            }
+        }
+
+        return result
     }
 } 

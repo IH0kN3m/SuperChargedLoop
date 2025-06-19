@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject var viewModel = ViewModel()
+    @ObservedObject var viewModel: ViewModel
+    @State private var showSettings = false
 
     var body: some View {
         ZStack {
@@ -16,39 +17,124 @@ struct ContentView: View {
                 Spacer()
                 HStack { Spacer() }
             }.background(viewModel.selectedColorPair.pastel.opacity(0.25))
+                .ignoresSafeArea()
 
             if !viewModel.grid.isEmpty {
-                VStack(alignment: .center, spacing: 0) {
-                    ForEach(0..<viewModel.grid.count, id: \.self) { row in
-                        HStack(spacing: 0) {
-                            ForEach(0..<viewModel.grid[row].count, id: \.self) { col in
-                                let tile = viewModel.grid[row][col]
+                Group {
+                    if viewModel.requiresScroll {
+                        ScrollView([.vertical, .horizontal]) { lazyGridBody }
+                    } else { gridBody }
+                }
+            }
+        }
+        .statusBarHidden(true)
+        .onAppear { Task { viewModel.generateGrid() } }
+        .onChange(of: viewModel.openConnections) {
+            if viewModel.openConnections.isEmpty {
+                viewModel.generateGrid()
+            }
+        }
+        .onTapGesture {
+            if viewModel.tapBackgroundToRegenerate {
+                viewModel.generateGrid()
+            }
+        }
+        .overlay(alignment: .bottom) {
+            Button(action: { showSettings = true }, label: {
+                Text("...")
+                    .foregroundColor(viewModel.selectedColorPair.darker)
+                    .font(.system(size: 24, weight: .bold))
+            })
+        }
+        .sheet(isPresented: $showSettings) {
+            VStack(spacing: 24) {
+                Text("Settings")
+                    .font(.title2)
+                    .bold()
+                    .padding(.top)
 
-                                tile.asset
-                                    .renderingMode(.template)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 48, height: 48)
-                                    .foregroundColor(viewModel.selectedColorPair.darker)
-                                    .rotationEffect(.degrees(Double(tile.rotationCount) * 90))
-                                    .animation(.interpolatingSpring(duration: 0.20, bounce: 0.25), value: tile.rotationCount)
-                                    .simultaneousGesture(
-                                        LongPressGesture(minimumDuration: 0.01)
-                                            .onEnded { _ in 
-                                                viewModel.rotateElement(at: tile.position) 
-                                            }
-                                    )
-                            }
-                        }
+                Picker("Level Density", selection: $viewModel.densityLevel) {
+                    Text("Normal").tag(DensityLevel.normal)
+                    Text("Dense").tag(DensityLevel.dense)
+                    Text("Scrolling").tag(DensityLevel.scrolling)
+                }
+                .pickerStyle(SegmentedPickerStyle())
+                .padding(.horizontal)
+
+                if viewModel.densityLevel == .scrolling {
+                    VStack {
+                        Stepper("Rows: \(viewModel.customRows)", value: $viewModel.customRows, in: 2...100)
+                        Stepper("Columns: \(viewModel.customCols)", value: $viewModel.customCols, in: 2...100)
+                    }
+                    .padding(.horizontal)
+                }
+
+                Divider()
+
+                Toggle("Haptic Feedback", isOn: $viewModel.hapticsEnabled)
+                    .padding(.horizontal)
+
+                Toggle("Tap background to regenerate", isOn: $viewModel.tapBackgroundToRegenerate)
+                    .padding(.horizontal)
+
+                Spacer()
+
+                Button(action: {
+                    viewModel.regenerateLevel()
+                    showSettings = false
+                }) {
+                    Text("Regenerate Level")
+                        .font(.headline)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(viewModel.selectedColorPair.pastel.opacity(0.2))
+                        .cornerRadius(12)
+                }
+            }
+            .padding()
+        }
+    }
+
+    var gridBody: some View {
+        VStack(alignment: .center, spacing: 0) {
+            ForEach(0..<viewModel.grid.count, id: \.self) { row in
+                HStack(spacing: 0) {
+                    ForEach(0..<viewModel.grid[row].count, id: \.self) { col in
+                        let tile = viewModel.grid[row][col]
+                        tileView(tile)
                     }
                 }
             }
         }
-        .ignoresSafeArea()
-        .statusBarHidden(true)
-        .onAppear { Task { viewModel.generateGrid() } }
-        .onChange(of: viewModel.openConnections) {
-            if viewModel.openConnections.isEmpty { viewModel.generateGrid() }
+    }
+
+    var lazyGridBody: some View {
+        LazyVStack(alignment: .center, spacing: 0) {
+            ForEach(0..<viewModel.grid.count, id: \.self) { row in
+                LazyHStack(spacing: 0) {
+                    ForEach(0..<viewModel.grid[row].count, id: \.self) { col in
+                        let tile = viewModel.grid[row][col]
+                        tileView(tile)
+                    }
+                }
+            }
         }
+    }
+
+    func tileView(_ tile: Models.Tile) -> some View {
+        tile.asset
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: viewModel.tileSize, height: viewModel.tileSize)
+            .foregroundColor(viewModel.selectedColorPair.darker)
+            .rotationEffect(.degrees(Double(tile.rotationCount) * 90))
+            .animation(.interpolatingSpring(duration: 0.20, bounce: 0.25), value: tile.rotationCount)
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.01)
+                    .onEnded { _ in
+                        viewModel.rotateElement(at: tile.position)
+                    }
+            )
     }
 }
