@@ -213,4 +213,42 @@ class MatrixEngine {
         
         return openConnections
     }
+    
+    // Re-evaluate the open-connection map for the tapped tile and its neighbours **without** performing the rotation.
+    // This is useful when the UI has already applied an optimistic rotation on the main thread and we simply need the
+    // bookkeeping work to happen off the main thread.
+    func recalculateConnections(
+        for position: Models.Position,
+        in grid: [[Models.Tile]],
+        openConnections: [Models.OpenConnection]
+    ) -> (grid: [[Models.Tile]], openConnections: [Models.OpenConnection]) {
+        let updatedGrid = grid // grid already contains the rotated tile
+        var updatedOpenConnections = openConnections
+
+        // Gather neighbours around the tapped tile
+        var neighbours: [Models.Tile] = []
+        if position.x > 0 { neighbours.append(updatedGrid[position.y][position.x - 1]) }
+        if position.x < updatedGrid[position.y].count - 1 { neighbours.append(updatedGrid[position.y][position.x + 1]) }
+        if position.y > 0 { neighbours.append(updatedGrid[position.y - 1][position.x]) }
+        if position.y < updatedGrid.count - 1 { neighbours.append(updatedGrid[position.y + 1][position.x]) }
+
+        let affectedTiles = [updatedGrid[position.y][position.x]] + neighbours
+        let affectedPositions = affectedTiles.map { $0.position }
+
+        // Purge any previous open-connection records for the affected tiles
+        updatedOpenConnections.removeAll { affectedPositions.contains($0.position) }
+
+        // Re-calculate connections only for the affected tiles
+        for tile in affectedTiles {
+            var tileNeighbours: [Models.Tile] = []
+            if tile.position.x > 0 { tileNeighbours.append(updatedGrid[tile.position.y][tile.position.x - 1]) }
+            if tile.position.x < updatedGrid[tile.position.y].count - 1 { tileNeighbours.append(updatedGrid[tile.position.y][tile.position.x + 1]) }
+            if tile.position.y > 0 { tileNeighbours.append(updatedGrid[tile.position.y - 1][tile.position.x]) }
+            if tile.position.y < updatedGrid.count - 1 { tileNeighbours.append(updatedGrid[tile.position.y + 1][tile.position.x]) }
+
+            updatedOpenConnections.append(contentsOf: checkOpenConnections(of: tile, with: tileNeighbours))
+        }
+
+        return (grid: updatedGrid, openConnections: updatedOpenConnections)
+    }
 } 
