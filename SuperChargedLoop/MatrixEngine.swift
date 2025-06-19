@@ -7,6 +7,7 @@
 
 import Foundation
 
+/// Engine responsible for generating, mirroring, and updating the tile matrix for SuperChargedLoop.
 class MatrixEngine {
     /// Generates a solvable matrix of tiles.
     ///
@@ -20,6 +21,7 @@ class MatrixEngine {
     ///   - matrixSize: Tuple **(columns, rows)** specifying the desired size.
     ///   - mirrorHoriz: When `true`, the right-hand side of the matrix is a horizontal mirror of the left-hand side.
     ///   - mirrorVert:  When `true`, the bottom half of the matrix is a vertical mirror of the top half.
+    /// - Returns: A tuple containing the generated grid and a list of open connections.
     func generateGrid(
         matrixSize: (Int, Int),
         mirrorHoriz: Bool = false,
@@ -107,6 +109,12 @@ class MatrixEngine {
         return (grid: shuffledResult.grid, openConnections: shuffledResult.openConnections)
     }
     
+    /// Rotates a tile at the given position in the grid and updates open connections.
+    /// - Parameters:
+    ///   - position: The position of the tile to rotate.
+    ///   - grid: The current grid of tiles.
+    ///   - openConnections: The current list of open connections.
+    /// - Returns: The updated grid and open connections.
     func rotateElement(at position: Models.Position, in grid: [[Models.Tile]], openConnections: [Models.OpenConnection]) -> (grid: [[Models.Tile]], openConnections: [Models.OpenConnection]) {
         let updatedGrid = grid
         var updatedOpenConnections = openConnections
@@ -151,6 +159,9 @@ class MatrixEngine {
         return (grid: updatedGrid, openConnections: updatedOpenConnections)
     }
     
+    /// Randomly rotates all tiles in the grid and recalculates open connections.
+    /// - Parameter grid: The grid to shuffle and rotate.
+    /// - Returns: The updated grid and open connections.
     private func shuffleTilesWithRandomRotations(grid: [[Models.Tile]]) -> (grid: [[Models.Tile]], openConnections: [Models.OpenConnection]) {
         let updatedGrid = grid
         var openConnections: [Models.OpenConnection] = []
@@ -182,6 +193,11 @@ class MatrixEngine {
         return (grid: updatedGrid, openConnections: openConnections)
     }
     
+    /// Checks for open connections on a tile given its neighbors.
+    /// - Parameters:
+    ///   - tile: The tile to check.
+    ///   - neighbors: The neighboring tiles.
+    /// - Returns: An array of open connections for the tile.
     private func checkOpenConnections(
         of tile: Models.Tile,
         with neighbors: [Models.Tile]
@@ -247,9 +263,12 @@ class MatrixEngine {
         return openConnections
     }
     
-    // Re-evaluate the open-connection map for the tapped tile and its neighbours **without** performing the rotation.
-    // This is useful when the UI has already applied an optimistic rotation on the main thread and we simply need the
-    // bookkeeping work to happen off the main thread.
+    /// Re-evaluates the open-connection map for a tapped tile and its neighbors without performing the rotation.
+    /// - Parameters:
+    ///   - position: The position of the tile.
+    ///   - grid: The current grid of tiles.
+    ///   - openConnections: The current list of open connections.
+    /// - Returns: The updated grid and open connections.
     func recalculateConnections(
         for position: Models.Position,
         in grid: [[Models.Tile]],
@@ -288,6 +307,11 @@ class MatrixEngine {
     // MARK: - Mirroring helpers
 
     /// Produces a new grid by mirroring the `source` grid according to the requested axes.
+    /// - Parameters:
+    ///   - source: The original grid to mirror.
+    ///   - mirrorHoriz: Whether to mirror horizontally.
+    ///   - mirrorVert: Whether to mirror vertically.
+    /// - Returns: The mirrored grid.
     private func makeMirroredGrid(
         from source: [[Models.Tile]],
         mirrorHoriz: Bool,
@@ -344,7 +368,12 @@ class MatrixEngine {
         return result
     }
 
-    /// Returns the rotation that results from mirroring `rotation` horizontally, vertically or both.
+    /// Returns the rotation that results from mirroring a rotation horizontally, vertically, or both.
+    /// - Parameters:
+    ///   - rotation: The original rotation.
+    ///   - mirrorHoriz: Whether to mirror horizontally.
+    ///   - mirrorVert: Whether to mirror vertically.
+    /// - Returns: The mirrored rotation.
     private func mirroredRotation(
         for rotation: Models.RotationPoint,
         mirrorHoriz: Bool,

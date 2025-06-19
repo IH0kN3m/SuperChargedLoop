@@ -9,6 +9,7 @@ import SwiftUI
 import Foundation
 import CoreHaptics
 
+/// The density level for the grid, affecting its size and scrollability.
 public enum DensityLevel: String, CaseIterable, Identifiable, Codable {
     case normal
     case dense
@@ -16,7 +17,9 @@ public enum DensityLevel: String, CaseIterable, Identifiable, Codable {
     public var id: String { rawValue }
 }
 
+/// The main view model for SuperChargedLoop, managing the grid, user settings, and game logic.
 class ViewModel: ObservableObject {
+    /// Keys for persisting user settings in UserDefaults.
     private enum DefaultsKey {
         static let density = "densityLevel"
         static let customRows = "customRows"
@@ -25,25 +28,31 @@ class ViewModel: ObservableObject {
         static let tapBackgroundToRegenerate = "tapBackgroundToRegenerateEnabled"
     }
 
+    /// The engine responsible for generating and updating the tile matrix.
     private let matrixEngine = MatrixEngine()
 
+    /// Haptic feedback generator for tile interactions.
     @MainActor
     private let impactFeedback = UIImpactFeedbackGenerator(
         style: .light
     )
 
+    /// The current grid of tiles.
     @Published
     @MainActor
     var grid: [[Models.Tile]] = []
 
+    /// The current list of open connections in the grid.
     @Published
     @MainActor
     var openConnections: [Models.OpenConnection] = []
     
+    /// The currently selected color pair for the UI.
     @Published
     @MainActor
     var selectedColorPair: (pastel: Color, darker: Color) = (Color.blue, Color.blue)
 
+    /// The selected density level for the grid.
     @Published
     var densityLevel: DensityLevel = .normal {
         didSet {
@@ -56,25 +65,28 @@ class ViewModel: ObservableObject {
         }
     }
 
-    // Custom matrix size when scrolling density is selected
+    /// Custom number of rows for the grid (used in scrolling mode).
     @Published var customRows: Int = 4 {
         didSet { UserDefaults.standard.set(customRows, forKey: DefaultsKey.customRows) }
     }
+    /// Custom number of columns for the grid (used in scrolling mode).
     @Published var customCols: Int = 8 {
         didSet { UserDefaults.standard.set(customCols, forKey: DefaultsKey.customCols) }
     }
 
-    // Determines if the current grid should be displayed inside ScrollView
+    /// Whether the grid requires a scroll view for display.
     @Published var requiresScroll: Bool = false
 
-    // Convenience computed properties
+    /// Returns true if the density level is set to dense.
     var isDense: Bool { densityLevel == .dense }
 
+    /// Whether haptic feedback is enabled for tile interactions.
     @Published
     var hapticsEnabled: Bool = true {
         didSet { UserDefaults.standard.set(hapticsEnabled, forKey: DefaultsKey.haptics) }
     }
 
+    /// Whether tapping the background regenerates the grid.
     @Published
     var tapBackgroundToRegenerate: Bool = false {
         didSet {
@@ -85,6 +97,7 @@ class ViewModel: ObservableObject {
         }
     }
 
+    /// The current window dimensions, accounting for safe area insets.
     @MainActor
     private var windowDimensions: (width: CGFloat, height: CGFloat) {
         let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene
@@ -95,6 +108,7 @@ class ViewModel: ObservableObject {
         return (width, height)
     }
 
+    /// The optimal tile size for the current grid and window size.
     @MainActor
     var tileSize: CGFloat {
         guard !grid.isEmpty else { return isDense ? 20 : 48 }
@@ -106,9 +120,11 @@ class ViewModel: ObservableObject {
         return min(max(maxTileSize, minTile), 64)
     }
 
+    /// The current matrix size (rows, columns).
     @MainActor
     var currentMatrixSize: (Int, Int) = (0, 0)
 
+    /// Predefined color pairs for the UI.
     private let colorPairs = [
         (Color(red: 1.0, green: 0.7, blue: 0.7), Color(red: 0.8, green: 0.5, blue: 0.5)),
         (Color(red: 1.0, green: 0.8, blue: 0.6), Color(red: 0.8, green: 0.6, blue: 0.4)),
@@ -125,6 +141,7 @@ class ViewModel: ObservableObject {
         (Color(red: 0.9, green: 0.9, blue: 0.9), Color(red: 0.7, green: 0.7, blue: 0.7))
     ]
 
+    /// Initializes the view model and loads persisted user settings.
     init() {
         // Load persisted settings
         let defaults = UserDefaults.standard
@@ -139,6 +156,7 @@ class ViewModel: ObservableObject {
         tapBackgroundToRegenerate = defaults.bool(forKey: DefaultsKey.tapBackgroundToRegenerate)
     }
 
+    /// Generates a new grid and updates the UI, using the current settings.
     func generateGrid() {
         Task {
             let canMirror = densityLevel != .scrolling
@@ -191,6 +209,7 @@ class ViewModel: ObservableObject {
         }
     }
 
+    /// Selects a random color pair for the UI, with animation.
     @MainActor
     func selectRandomColorPair() {
         withAnimation(.interpolatingSpring(duration: 0.20, bounce: 0.25)) {
@@ -200,6 +219,8 @@ class ViewModel: ObservableObject {
         }
     }
 
+    /// Rotates a tile at the given position, updating the grid and open connections.
+    /// - Parameter position: The position of the tile to rotate.
     func rotateElement(at position: Models.Position) {
         // 1. Perform the visual rotation immediately on the main thread so the UI feels instantaneous.
         Task { @MainActor in
@@ -227,7 +248,11 @@ class ViewModel: ObservableObject {
         }
     }
 
-    // Returns a random Int in the given range, biased toward higher values by the given power
+    /// Returns a random Int in the given range, biased toward higher values by the given power.
+    /// - Parameters:
+    ///   - range: The range of values.
+    ///   - power: The exponent for weighting (higher = more bias toward higher values).
+    /// - Returns: A random integer from the range.
     private func weightedRandom(in range: ClosedRange<Int>, power: Double = 2.0) -> Int {
         let values = Array(range)
         let weights = values.map { pow(Double($0 - range.lowerBound + 1), power) }
@@ -243,10 +268,12 @@ class ViewModel: ObservableObject {
         return values.last!
     }
 
+    /// Sets the density level to dense or normal.
     func setDense(_ dense: Bool) {
         densityLevel = dense ? .dense : .normal
     }
     
+    /// Enables or disables haptic feedback.
     func setHapticsEnabled(_ enabled: Bool) {
         hapticsEnabled = enabled
     }

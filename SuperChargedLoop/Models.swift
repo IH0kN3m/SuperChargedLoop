@@ -8,15 +8,19 @@
 import Foundation
 import SwiftUI
 
+/// Namespace for all model types used in SuperChargedLoop.
 enum Models {
+    /// The different types of tiles available in the game.
     enum TileType: CaseIterable { case t0, t1, t2, t3, t4, t5 }
+
+    /// Represents the four possible rotation points (0°, 90°, 180°, 270°) for a tile.
     enum RotationPoint: Int, CaseIterable, Equatable {
         case r0 = 0
         case r90 = 90
         case r180 = 180
         case r270 = 270
 
-        /// Rotates itself by 90 degrees.
+        /// Returns the next rotation point (rotated by 90° clockwise).
         func rotated() -> Self {
             return switch self {
             case .r0: .r90
@@ -26,6 +30,7 @@ enum Models {
             }
         }
 
+        /// Returns the number of 90° rotations from the default orientation.
         func rotationNumbers() -> Int {
             switch self {
             case .r0: 0
@@ -36,25 +41,33 @@ enum Models {
         }
     }
 
+    /// Represents a position in the grid.
     struct Position: Equatable, Hashable {
         let x: Int
         let y: Int
     }
 
+    /// Represents an open connection on a tile at a specific position and rotation.
     struct OpenConnection: Equatable {
         let position: Position
         let connectionPoint: RotationPoint
     }
 
+    /// Represents a single tile in the grid.
     class Tile: Identifiable, ObservableObject {
+        /// Unique identifier for the tile.
         let id = UUID()
+        /// The type of tile (shape/connection type).
         let type: TileType
+        /// The current connection points for this tile, based on its type and rotation.
         @Published private(set) var connectionPoints: [RotationPoint]
-
+        /// The tile's position in the grid.
         private(set) var position: Position
+        /// The current rotation of the tile.
         @Published private(set) var rotation: RotationPoint
+        /// The number of 90° rotations applied to the tile.
         @Published private(set) var rotationCount: Int
-
+        /// The SwiftUI image asset for this tile.
         var asset: Image {
             switch type {
             case .t0: Image("t0")
@@ -66,6 +79,11 @@ enum Models {
             }
         }
 
+        /// Initializes a tile with a given type, position, and rotation.
+        /// - Parameters:
+        ///   - type: The tile type.
+        ///   - position: The position in the grid.
+        ///   - rotation: The initial rotation.
         init(
             type: TileType,
             position: Position,
@@ -92,6 +110,7 @@ enum Models {
             }
         }
 
+        /// Default initializer for an empty tile.
         init() {
             self.type = .t0
             self.position = .init(x: 0, y: 0)
@@ -100,6 +119,7 @@ enum Models {
             self.connectionPoints = []
         }
 
+        /// Rotates the tile by 90° clockwise, updating its rotation and connection points.
         func rotate() {
             rotation = rotation.rotated()
             rotationCount += 1
