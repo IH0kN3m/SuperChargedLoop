@@ -31,14 +31,13 @@ class ViewModel: ObservableObject {
         static let tapBackgroundToRegenerate = "tapBackgroundToRegenerateEnabled"
     }
 
-    /// The engine responsible for generating and updating the tile matrix.
-    private let matrixEngine = MatrixEngine()
+    // External managers that encapsulate complex logic
+    private let gridManager  = GridManager()
+    private let colorManager = ColorManager()
 
     /// Haptic feedback generator for tile interactions.
     @MainActor
-    private let impactFeedback = UIImpactFeedbackGenerator(
-        style: .light
-    )
+    private let impactFeedback = UIImpactFeedbackGenerator(style: .light)
 
     /// The current grid of tiles.
     @Published
@@ -100,49 +99,19 @@ class ViewModel: ObservableObject {
         }
     }
 
-    /// The current window dimensions, accounting for safe area insets.
-    @MainActor
-    private var windowDimensions: (width: CGFloat, height: CGFloat) {
-        let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene
-        let window = windowScene?.windows.first
-        let safeAreaInsets = window?.safeAreaInsets ?? .zero
-        let width = ((window?.bounds.width ?? UIScreen.main.bounds.width) - safeAreaInsets.left - safeAreaInsets.right) - 16
-        let height = ((window?.bounds.height ?? UIScreen.main.bounds.height) - safeAreaInsets.top - safeAreaInsets.bottom) - 16
-        return (width, height)
-    }
+    // MARK: - Derived properties & public helpers
 
-    /// The optimal tile size for the current grid and window size.
+    /// Optimal tile dimension for the current grid & device window.
     @MainActor
-    var tileSize: CGFloat {
-        guard !grid.isEmpty else { return isDense ? 20 : 48 }
-        let gridWidth = grid[0].count
-        let gridHeight = grid.count
-        let (availableWidth, availableHeight) = windowDimensions
-        let minTile: CGFloat = isDense ? 20 : 40
-        let maxTileSize = min(availableWidth / CGFloat(gridWidth), availableHeight / CGFloat(gridHeight))
-        return min(max(maxTileSize, minTile), 64)
-    }
+    var tileSize: CGFloat { gridManager.tileSize(for: grid, isDense: isDense) }
 
+    // Window-dimension and tile-size logic moved to ViewModel+Grid.swift
+    // The following property is retained for external access.
     /// The current matrix size (rows, columns).
     @MainActor
     var currentMatrixSize: (Int, Int) = (0, 0)
 
-    /// Predefined color pairs for the UI.
-    private let colorPairs = [
-        (Color(red: 1.0, green: 0.7, blue: 0.7), Color(red: 0.8, green: 0.5, blue: 0.5)),
-        (Color(red: 1.0, green: 0.8, blue: 0.6), Color(red: 0.8, green: 0.6, blue: 0.4)),
-        (Color(red: 1.0, green: 1.0, blue: 0.7), Color(red: 0.8, green: 0.8, blue: 0.5)),
-        (Color(red: 0.7, green: 1.0, blue: 0.7), Color(red: 0.5, green: 0.8, blue: 0.5)),
-        (Color(red: 0.7, green: 0.8, blue: 1.0), Color(red: 0.5, green: 0.6, blue: 0.8)),
-        (Color(red: 0.9, green: 0.7, blue: 1.0), Color(red: 0.7, green: 0.5, blue: 0.8)),
-        (Color(red: 1.0, green: 0.7, blue: 0.9), Color(red: 0.8, green: 0.5, blue: 0.7)),
-        (Color(red: 0.7, green: 1.0, blue: 0.9), Color(red: 0.5, green: 0.8, blue: 0.7)),
-        (Color(red: 0.7, green: 0.9, blue: 0.9), Color(red: 0.5, green: 0.7, blue: 0.7)),
-        (Color(red: 0.7, green: 0.9, blue: 1.0), Color(red: 0.5, green: 0.7, blue: 0.8)),
-        (Color(red: 0.8, green: 0.8, blue: 1.0), Color(red: 0.6, green: 0.6, blue: 0.8)),
-        (Color(red: 0.9, green: 0.8, blue: 0.7), Color(red: 0.7, green: 0.6, blue: 0.5)),
-        (Color(red: 0.9, green: 0.9, blue: 0.9), Color(red: 0.7, green: 0.7, blue: 0.7))
-    ]
+    // Pre-defined colour pairs now live in ViewModel+Color.swift
 
     /// Initializes the view model and loads persisted user settings.
     init() {
@@ -159,114 +128,33 @@ class ViewModel: ObservableObject {
         tapBackgroundToRegenerate = defaults.bool(forKey: DefaultsKey.tapBackgroundToRegenerate)
     }
 
-    /// Generates a new grid and updates the UI, using the current settings.
+    // MARK: - Grid & Colour orchestration
+
+    /// Generates a new puzzle grid by delegating to `GridManager`.
     func generateGrid() {
         Task {
-            let canMirror = densityLevel != .scrolling
-            let shouldMirror = canMirror && Bool.random()
-            let shouldMirrorHorizontally = shouldMirror && Bool.random()
-            let shouldMirrorVertically = shouldMirror && Bool.random()
-
-            let (availableWidth, availableHeight) = await windowDimensions
-            let maxCols = Int(availableWidth / (isDense ? 20 : 40))
-            let maxRows = Int(availableHeight / (isDense ? 20 : 40))
-
-            // Determine target matrix size
-            let matrixSize: (Int, Int)
-            if densityLevel == .scrolling {
-                matrixSize = (customRows, customCols)
-            } else {
-                // Preserve existing logic for normal/dense
-                if shouldMirror {
-                    let rows = weightedRandom(in: 2...min(8, maxRows), power: 2.0)
-                    let cols = weightedRandom(in: 2...min(16, maxCols), power: 2.0)
-                    matrixSize = (
-                        rows % 2 == 0 ? rows : rows + 1,
-                        cols % 2 == 0 ? cols : cols + 1
-                    )
-                } else {
-                    let rows = weightedRandom(in: 2...min(8, maxRows), power: 2.0)
-                    let cols = weightedRandom(in: 2...min(17, maxCols), power: 2.0)
-                    matrixSize = (rows, cols)
-                }
-            }
-
-            // Determine if scrolling needed
-            await MainActor.run {
-                requiresScroll = matrixSize.1 > maxCols || matrixSize.0 > maxRows
-                currentMatrixSize = matrixSize
-            }
-
-            let result = matrixEngine.generateGrid(
-                matrixSize: matrixSize,
-                mirrorHoriz: shouldMirrorHorizontally,
-                mirrorVert: shouldMirrorVertically
+            let output = await gridManager.generateGrid(
+                densityLevel: densityLevel,
+                isDense:      isDense,
+                customRows:   customRows,
+                customCols:   customCols
             )
 
-            guard result.grid.contains(where: { $0.contains(where: { $0.type != .t0 }) }) else {
-                generateGrid()
-                return
-            }
-
             await MainActor.run {
-                grid = result.grid
-                openConnections = result.openConnections
-                selectRandomColorPair()
+                self.grid            = output.grid
+                self.openConnections = output.openConnections
+                self.requiresScroll  = output.requiresScroll
+                self.currentMatrixSize = output.matrixSize
+
+                // Update colour theme
+                self.selectedColorPair = colorManager.randomColorPair()
             }
         }
     }
 
-    /// Selects a random color pair for the UI, with animation.
-    @MainActor
-    func selectRandomColorPair() {
-        withAnimation(.interpolatingSpring(duration: 0.20, bounce: 0.25)) {
-            let pair = colorPairs.randomElement() ?? (
-                Color(red: 0.7, green: 0.8, blue: 1.0), Color(red: 0.5, green: 0.6, blue: 0.8)
-            )
-
-            // Create a dynamic pastel that automatically adjusts for light / dark mode
-            let dynamicPastel = adjustPastelForCurrentInterface(pair.1)
-
-            selectedColorPair = (pastel: pair.0, darker: dynamicPastel)
-        }
-    }
-
-    /// Returns a `Color` that automatically darkens when the interface switches to dark mode.
-    /// - Parameters:
-    ///   - color: The original pastel `Color` chosen for light mode.
-    ///   - darkenFactor: Multiplier applied to RGB components for the dark-mode version (default 0.6 = 40 % darker).
-    /// - Returns: A dynamic `Color` that adapts to the current interface style.
-    private func adjustPastelForCurrentInterface(_ color: Color, darkenFactor: CGFloat = 0.6) -> Color {
-#if canImport(UIKit)
-        let lightUIColor = UIColor(color)
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        guard lightUIColor.getRed(&r, green: &g, blue: &b, alpha: &a) else {
-            return color // Fallback if conversion fails
-        }
-
-        // Pre-compute the darker variant for dark mode
-        let darkUIColor = UIColor(
-            red: r * darkenFactor,
-            green: g * darkenFactor,
-            blue: b * darkenFactor,
-            alpha: a
-        )
-
-        // Create a dynamic UIColor that swaps based on the current trait collection
-        let dynamicUIColor = UIColor { trait in
-            trait.userInterfaceStyle == .dark ? darkUIColor : lightUIColor
-        }
-
-        return Color(dynamicUIColor)
-#else
-        return color
-#endif
-    }
-
-    /// Rotates a tile at the given position, updating the grid and open connections.
-    /// - Parameter position: The position of the tile to rotate.
+    /// Handles user tile-rotation gestures.
     func rotateElement(at position: Models.Position) {
-        // 1. Perform the visual rotation immediately on the main thread so the UI feels instantaneous.
+        // Visual update first so the UI feels snappy
         Task { @MainActor in
             guard position.y < grid.count, position.x < grid[position.y].count else { return }
             let tile = grid[position.y][position.x]
@@ -276,41 +164,15 @@ class ViewModel: ObservableObject {
             }
         }
 
-        // 2. Launch a background task (utility priority) for the heavy bookkeeping.
+        // Heavy connection bookkeeping off the main thread
         Task(priority: .utility) {
-            let grid = await grid
-            let openConnections = await openConnections
-            let result = matrixEngine.recalculateConnections(
+            let updatedOpen = gridManager.recalculateConnections(
                 for: position,
                 in: grid,
                 openConnections: openConnections
             )
-
-            await MainActor.run {
-                // Only update the openConnections array. The grid reference is identical (we mutated in-place).
-                self.openConnections = result.openConnections
-            }
+            await MainActor.run { self.openConnections = updatedOpen }
         }
-    }
-
-    /// Returns a random Int in the given range, biased toward higher values by the given power.
-    /// - Parameters:
-    ///   - range: The range of values.
-    ///   - power: The exponent for weighting (higher = more bias toward higher values).
-    /// - Returns: A random integer from the range.
-    private func weightedRandom(in range: ClosedRange<Int>, power: Double = 2.0) -> Int {
-        let values = Array(range)
-        let weights = values.map { pow(Double($0 - range.lowerBound + 1), power) }
-        let totalWeight = weights.reduce(0, +)
-        let random = Double.random(in: 0..<totalWeight)
-        var cumulative = 0.0
-        for (index, weight) in weights.enumerated() {
-            cumulative += weight
-            if random < cumulative {
-                return values[index]
-            }
-        }
-        return values.last!
     }
 
     /// Sets the density level to dense or normal.
