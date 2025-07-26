@@ -166,7 +166,7 @@ class ViewModel: ObservableObject {
 
         // Heavy connection bookkeeping off the main thread
         Task(priority: .utility) {
-            let updatedOpen = gridManager.recalculateConnections(
+            let updatedOpen = await gridManager.recalculateConnections(
                 for: position,
                 in: grid,
                 openConnections: openConnections
