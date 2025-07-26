@@ -20,7 +20,6 @@ final class ColorManager {
     private let colorPairs: [(pastel: Color, darker: Color)] = [
         (Color(red: 1.0, green: 0.7, blue: 0.7), Color(red: 0.8, green: 0.5, blue: 0.5)),
         (Color(red: 1.0, green: 0.8, blue: 0.6), Color(red: 0.8, green: 0.6, blue: 0.4)),
-        (Color(red: 1.0, green: 1.0, blue: 0.7), Color(red: 0.8, green: 0.8, blue: 0.5)),
         (Color(red: 0.7, green: 1.0, blue: 0.7), Color(red: 0.5, green: 0.8, blue: 0.5)),
         (Color(red: 0.7, green: 0.8, blue: 1.0), Color(red: 0.5, green: 0.6, blue: 0.8)),
         (Color(red: 0.9, green: 0.7, blue: 1.0), Color(red: 0.7, green: 0.5, blue: 0.8)),
@@ -30,7 +29,13 @@ final class ColorManager {
         (Color(red: 0.7, green: 0.9, blue: 1.0), Color(red: 0.5, green: 0.7, blue: 0.8)),
         (Color(red: 0.8, green: 0.8, blue: 1.0), Color(red: 0.6, green: 0.6, blue: 0.8)),
         (Color(red: 0.9, green: 0.8, blue: 0.7), Color(red: 0.7, green: 0.6, blue: 0.5)),
-        (Color(red: 0.9, green: 0.9, blue: 0.9), Color(red: 0.7, green: 0.7, blue: 0.7))
+        (Color(red: 0.9, green: 0.9, blue: 0.9), Color(red: 0.7, green: 0.7, blue: 0.7)),
+        (Color(red: 0.8, green: 0.7, blue: 0.9), Color(red: 0.6, green: 0.5, blue: 0.7)),
+        (Color(red: 0.9, green: 0.6, blue: 0.8), Color(red: 0.7, green: 0.4, blue: 0.6)),
+        (Color(red: 0.6, green: 0.9, blue: 0.8), Color(red: 0.4, green: 0.7, blue: 0.6)),
+        (Color(red: 0.8, green: 0.9, blue: 0.6), Color(red: 0.6, green: 0.7, blue: 0.4)),
+        (Color(red: 0.9, green: 0.6, blue: 0.6), Color(red: 0.7, green: 0.4, blue: 0.4)),
+        (Color(red: 0.6, green: 0.8, blue: 0.9), Color(red: 0.4, green: 0.6, blue: 0.7))
     ]
 
     /// Creates a dynamic colour that darkens in dark-mode for a pleasant contrast.

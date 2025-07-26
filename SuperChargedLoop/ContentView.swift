@@ -16,11 +16,15 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
+            Color.black
+                .ignoresSafeArea()
+            
             VStack {
                 Spacer()
                 HStack { Spacer() }
-            }.background(viewModel.selectedColorPair.pastel.opacity(0.25))
-                .ignoresSafeArea()
+            }
+            .background(viewModel.selectedColorPair.pastel.opacity(0.75))
+            .ignoresSafeArea()
 
             if !viewModel.grid.isEmpty {
                 Group {
@@ -110,6 +114,8 @@ struct ContentView: View {
                 }
             }
         }
+        .compositingGroup()
+        .shadow(color: viewModel.selectedColorPair.darker.opacity(0.35), radius: 4, x: 2, y: 2)
     }
 
     /// A lazy grid view for large, scrollable matrices.
@@ -124,6 +130,8 @@ struct ContentView: View {
                 }
             }
         }
+        .compositingGroup()
+        .shadow(color: viewModel.selectedColorPair.darker.opacity(0.35), radius: 4, x: 2, y: 2)
     }
 
     /// Returns a view for a single tile, handling its appearance and rotation gesture.
@@ -135,7 +143,7 @@ struct ContentView: View {
             .resizable()
             .scaledToFit()
             .frame(width: viewModel.tileSize, height: viewModel.tileSize)
-            .foregroundColor(viewModel.selectedColorPair.darker)
+            .foregroundColor(.white)
             .rotationEffect(.degrees(Double(tile.rotationCount) * 90))
             .animation(.interpolatingSpring(duration: 0.20, bounce: 0.25), value: tile.rotationCount)
             .simultaneousGesture(
